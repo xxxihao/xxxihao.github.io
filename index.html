@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>早餐店每日收支表</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        h1, h2 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        input[type="number"], input[type="date"] { width: 100%; padding: 5px; box-sizing: border-box; }
+        button { background-color: #4CAF50; color: white; padding: 10px 20px; border: none; cursor: pointer; margin-right: 10px; }
+        button:hover { background-color: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>早餐店精细化每日收支表</h1>
+  
+    <div>
+        <label for="date">日期：</label>
+        <input type="date" id="date" required>
+    </div>
+
+    <h2>收入部分</h2>
+    <table>
+        <tr>
+            <th>项目</th>
+            <th>金额（元）</th>
+        </tr>
+        <tr>
+            <td>银行卡收入</td>
+            <td><input type="number" id="bankCardIncome" step="0.01"></td>
+        </tr>
+        <tr>
+            <td>现金收入</td>
+            <td><input type="number" id="cashIncome" step="0.01"></td>
+        </tr>
+        <tr>
+            <td>充值卡消费</td>
+            <td><input type="number" id="rechargeCardIncome" step="0.01"></td>
+        </tr>
+        <tr>
+            <td><strong>今日总收入</strong></td>
+            <td id="totalIncome"></td>
+        </tr>
+    </table>
+
+    <h2>支出部分</h2>
+    <h3>固定支出（按天均摊）</h3>
+    <table>
+        <tr>
+            <td>房租</td>
+            <td><input type="number" id="rent" step="0.01"></td>
+        </tr>
+        <tr>
+            <td>人工工资</td>
+            <td>
+                人数：<input type="number" id="employeeCount" style="width: 50px;">
+                日薪：<input type="number" id="dailyWage" style="width: 80px;" step="0.01">
+                总计：<span id="totalWage"></span>
+            </td>
+        </tr>
+    </table>
+
+    <h3>预估支出</h3>
+    <table id="expensesTable">
+        <tr>
+            <th>分类</th>
+            <th>具体项目</th>
+            <th>金额（元）</th>
+        </tr>
+        <!-- 这里将动态添加支出项目 -->
+    </table>
+
+    <h3>其他支出</h3>
+    <table>
+        <tr>
+            <td>包装耗材</td>
+            <td><input type="number" id="packagingCost" step="0.01"></td>
+        </tr>
+        <tr>
+            <td>水电燃气</td>
+            <td><input type="number" id="utilitiesCost" step="0.01"></td>
+        </tr>
+        <tr>
+            <td>维修/杂物</td>
+            <td><input type="number" id="miscCost" step="0.01"></td>
+        </tr>
+        <tr>
+            <td><strong>今日总支出</strong></td>
+            <td id="totalExpense"></td>
+        </tr>
+    </table>
+
+    <h2>当日利润</h2>
+    <table>
+        <tr>
+            <td><strong>净利润</strong></td>
+            <td id="netProfit"></td>
+        </tr>
+    </table>
+
+    <button onclick="copyToClipboard()">复制数据到剪贴板</button>
+    <button onclick="downloadTxtFile()">下载数据到TXT文件</button>
+
+    <script>
+        // 支出项目数据
+        const expenseItems = [
+            { category: "汤类成本", items: ["小米粥", "八宝粥", "银耳粥", "酸辣汤", "马糊", "豆浆", "撒汤"] },
+            { category: "包子类", items: ["包子面皮", "包子馅料"] },
+            { category: "咸馍&锅贴", items: ["咸馍皮/锅贴皮", "油（咸馍/油条等）", "咸馍用菜/鸡蛋"] },
+            { category: "其他成品", items: ["烧麦,包子,玉米,丸子,烤肠"] },
+            { category: "小料", items: ["辣椒油等等小料"] }
+        ];
+
+        // 初始化支出表格
+        function initExpensesTable() {
+            const table = document.getElementById("expensesTable");
+            expenseItems.forEach(category => {
+                category.items.forEach((item, index) => {
+                    const row = table.insertRow();
+                    if (index === 0) {
+                        row.insertCell().innerHTML = `<strong>${category.category}</strong>`;
+                    } else {
+                        row.insertCell();
+                    }
+                    row.insertCell().textContent = item;
+                    row.insertCell().innerHTML = `<input type="number" class="expense-item" data-category="${category.category}" step="0.01">`;
+                });
+                // 添加小计行
+                const subtotalRow = table.insertRow();
+                subtotalRow.insertCell().innerHTML = `<strong>${category.category}总计</strong>`;
+                subtotalRow.insertCell();
+                subtotalRow.insertCell().innerHTML = `<span class="subtotal" data-category="${category.category}">0</span>`;
+            });
+        }
+
+        // 计算总收入
+        function calculateTotalIncome() {
+            const bankCardIncome = parseFloat(document.getElementById("bankCardIncome").value) || 0;
+            const cashIncome = parseFloat(document.getElementById("cashIncome").value) || 0;
+            const rechargeCardIncome = parseFloat(document.getElementById("rechargeCardIncome").value) || 0;
+            const totalIncome = bankCardIncome + cashIncome + rechargeCardIncome;
+            document.getElementById("totalIncome").textContent = totalIncome.toFixed(2);
+            return totalIncome;
+        }
+
+        // 计算总支出
+        function calculateTotalExpense() {
+            const rent = parseFloat(document.getElementById("rent").value) || 0;
+            const totalWage = parseFloat(document.getElementById("totalWage").textContent) || 0;
+            const packagingCost = parseFloat(document.getElementById("packagingCost").value) || 0;
+            const utilitiesCost = parseFloat(document.getElementById("utilitiesCost").value) || 0;
+            const miscCost = parseFloat(document.getElementById("miscCost").value) || 0;
+
+            let materialCost = 0;
+            document.querySelectorAll('.expense-item').forEach(item => {
+                materialCost += parseFloat(item.value) || 0;
+            });
+
+            const totalExpense = rent + totalWage + materialCost + packagingCost + utilitiesCost + miscCost;
+            document.getElementById("totalExpense").textContent = totalExpense.toFixed(2);
+            return totalExpense;
+        }
+
+        // 计算净利润
+        function calculateNetProfit() {
+            const totalIncome = calculateTotalIncome();
+            const totalExpense = calculateTotalExpense();
+            const netProfit = totalIncome - totalExpense;
+            document.getElementById("netProfit").textContent = netProfit.toFixed(2);
+        }
+
+        // 更新工资总计
+        function updateTotalWage() {
+            const employeeCount = parseInt(document.getElementById("employeeCount").value) || 0;
+            const dailyWage = parseFloat(document.getElementById("dailyWage").value) || 0;
+            const totalWage = employeeCount * dailyWage;
+            document.getElementById("totalWage").textContent = totalWage.toFixed(2);
+            calculateNetProfit();
+        }
+
+        // 更新分类小计
+        function updateSubtotal(category) {
+            let subtotal = 0;
+            document.querySelectorAll(`.expense-item[data-category="${category}"]`).forEach(item => {
+                subtotal += parseFloat(item.value) || 0;
+            });
+            document.querySelector(`.subtotal[data-category="${category}"]`).textContent = subtotal.toFixed(2);
+        }
+
+        // 复制数据到剪贴板
+        function copyToClipboard() {
+            const data = collectData();
+            const textData = JSON.stringify(data, null, 2);
+            navigator.clipboard.writeText(textData).then(() => {
+                alert('数据已复制到剪贴板！');
+            }).catch(err => {
+                console.error('复制失败:', err);
+                alert('复制数据失败，请查看控制台了解详情。');
+            });
+        }
+
+        // 下载数据到TXT文件
+        function downloadTxtFile() {
+            const data = collectData();
+            const textData = JSON.stringify(data, null, 2);
+            const blob = new Blob([textData], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `早餐店收支表_${data.date}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // 收集数据
+        function collectData() {
+            const data = {
+                date: document.getElementById("date").value,
+                income: {
+                    bankCard: parseFloat(document.getElementById("bankCardIncome").value) || 0,
+                    cash: parseFloat(document.getElementById("cashIncome").value) || 0,
+                    rechargeCard: parseFloat(document.getElementById("rechargeCardIncome").value) || 0
+                },
+                expenses: {
+                    rent: parseFloat(document.getElementById("rent").value) || 0,
+                    labor: {
+                        count: parseInt(document.getElementById("employeeCount").value) || 0,
+                        wage: parseFloat(document.getElementById("dailyWage").value) || 0
+                    },
+                    materials: {},
+                    packaging: parseFloat(document.getElementById("packagingCost").value) || 0,
+                    utilities: parseFloat(document.getElementById("utilitiesCost").value) || 0,
+                    misc: parseFloat(document.getElementById("miscCost").value) || 0
+                },
+                totalIncome: parseFloat(document.getElementById("totalIncome").textContent),
+                totalExpense: parseFloat(document.getElementById("totalExpense").textContent),
+                netProfit: parseFloat(document.getElementById("netProfit").textContent)
+            };
+            // 收集材料支出数据
+            document.querySelectorAll('.expense-item').forEach(item => {
+                const category = item.dataset.category;
+                const value = parseFloat(item.value) || 0;
+                const itemName = item.closest('tr').cells[1].textContent;
+                if (!data.expenses.materials[category]) {
+                    data.expenses.materials[category] = {};
+                }
+                data.expenses.materials[category][itemName] = value;
+            });
+            return data;
+        }
+
+        // 初始化页面
+        window.onload = function() {
+            initExpensesTable();
+            document.getElementById("date").valueAsDate = new Date();
+
+            // 添加事件监听器
+            document.querySelectorAll('input[type="number"]').forEach(input => {
+                input.addEventListener('input', calculateNetProfit);
+            });
+            document.getElementById("employeeCount").addEventListener('input', updateTotalWage);
+            document.getElementById("dailyWage").addEventListener('input', updateTotalWage);
+            document.querySelectorAll('.expense-item').forEach(item => {
+                item.addEventListener('input', function() {
+                    updateSubtotal(this.dataset.category);
+                    calculateNetProfit();
+                });
+            });
+        };
+    </script>
+</body>
+</html>
